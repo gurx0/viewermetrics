@@ -73,6 +73,7 @@ These headers are used to authenticate the extension's own API requests.
 - All data is stored locally in your browser
 - No data is sent to external servers
 - Authentication headers are captured from sites own requests
+- The only outgoing requests are to the site itself
 - Viewer data is cleared when tracking stops or browser closes
 
 ## License

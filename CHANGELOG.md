@@ -2,6 +2,13 @@
 
 All notable changes to the Viewer Metrics Chrome Extension will be documented in this file.
 
+## [0.9.82] - 2025-11-24
+### Fixed
+- Smooth lines now an easy toggle from main chart
+- User retention configurable
+- Bot retention separated from viewer retention
+- Outgoing requests are now paused on stream end via auto-pause option
+
 ## [0.9.81] - 2025-11-24
 ### Fixed
 - Quick fix to include all recent months in bot detection, as a new batch has been created

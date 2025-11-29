@@ -34,6 +34,9 @@ window.MainChart = class MainChart {
     const config = this.settingsManager.get();
     const colors = config.chartColors;
 
+    // Initialize smooth lines state (default on, not persisted)
+    this.smoothLines = true;
+
     this.chart = new Chart(ctx, {
       type: 'line',
       data: {
@@ -182,7 +185,8 @@ window.MainChart = class MainChart {
 
           grid: {
             color: 'rgba(173, 173, 184, 0.1)',
-            drawBorder: false
+            drawBorder: false,
+            display: false // Remove vertical grid lines
           }
         },
         y: {
@@ -400,15 +404,20 @@ window.MainChart = class MainChart {
     tooltipEl.style.opacity = '1';
     tooltipEl.style.left = position.left + window.pageXOffset + tooltipModel.caretX + 'px';
     tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-  } update() {
+  } toggleSmoothLines() {
+    this.smoothLines = !this.smoothLines;
+    this.update();
+    return this.smoothLines;
+  }
+
+  update() {
     if (!this.chart) return;
 
     const history = this.dataManager.getHistory();
-    const smoothChartLines = this.settingsManager.get('smoothChartLines');
 
     // Helper function to remove consecutive duplicate y-values
     const removeDuplicates = (data) => {
-      if (!smoothChartLines || data.length <= 2) return data;
+      if (!this.smoothLines || data.length <= 2) return data;
 
       const result = [data[0]]; // Always keep first point
       for (let i = 1; i < data.length - 1; i++) {
@@ -437,13 +446,25 @@ window.MainChart = class MainChart {
     this.chart.data.datasets[2].data = botsData;
     this.chart.data.datasets[3].data = totalAuthenticatedData;
 
+    // Update tension and interpolation based on smooth lines setting
+    const tension = this.smoothLines ? 0.6 : 0;
+    const interpolationMode = this.smoothLines ? 'monotone' : 'default';
+    this.chart.data.datasets[0].tension = tension;
+    this.chart.data.datasets[0].cubicInterpolationMode = interpolationMode;
+    this.chart.data.datasets[1].tension = tension;
+    this.chart.data.datasets[1].cubicInterpolationMode = interpolationMode;
+    this.chart.data.datasets[2].tension = tension;
+    this.chart.data.datasets[2].cubicInterpolationMode = interpolationMode;
+    this.chart.data.datasets[3].tension = tension;
+    this.chart.data.datasets[3].cubicInterpolationMode = interpolationMode;
+
     // Hide point hover highlights when smooth lines are enabled
     // This prevents confusing hover indicators on interpolated curve points
-    const hoverRadius = smoothChartLines ? 0 : [6, 5, 5, 5];
-    this.chart.data.datasets[0].pointHoverRadius = smoothChartLines ? 0 : 6;
-    this.chart.data.datasets[1].pointHoverRadius = smoothChartLines ? 0 : 5;
-    this.chart.data.datasets[2].pointHoverRadius = smoothChartLines ? 0 : 5;
-    this.chart.data.datasets[3].pointHoverRadius = smoothChartLines ? 0 : 5;
+    const hoverRadius = this.smoothLines ? 0 : [6, 5, 5, 5];
+    this.chart.data.datasets[0].pointHoverRadius = this.smoothLines ? 0 : 6;
+    this.chart.data.datasets[1].pointHoverRadius = this.smoothLines ? 0 : 5;
+    this.chart.data.datasets[2].pointHoverRadius = this.smoothLines ? 0 : 5;
+    this.chart.data.datasets[3].pointHoverRadius = this.smoothLines ? 0 : 5;
 
     // Check if there are no bots present
     const hasNonZeroBots = botsData.some(point => point.y > 0);

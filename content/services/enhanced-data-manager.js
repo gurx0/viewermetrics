@@ -941,8 +941,7 @@ window.EnhancedDataManager = class DataManager {
         // Round to nearest grouping interval (ceil ensures we round up to next bracket)
         const timeRounded = Math.ceil(totalTimeMinutes / groupingInterval) * groupingInterval;
 
-        // Skip entries with 0 time
-        if (timeRounded === 0 && trackingEntry.pastTimeInStream === 0) continue;
+        // Include all entries, even those with 0 time (they were in stream but left before next scan)
 
         // Get or create month map
         if (!heatmapData.has(monthKey)) {

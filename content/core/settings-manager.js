@@ -74,7 +74,7 @@ window.SettingsManager = class SettingsManager {
         autoPauseGraphsOnZeroViewers: {
             default: true,
             type: 'boolean',
-            description: 'Auto-pause graphs when no viewers'
+            description: 'Auto-stop tracking when no viewers'
         },
         autoPauseDelay: {
             default: 300000,
@@ -84,7 +84,7 @@ window.SettingsManager = class SettingsManager {
             unit: 'ms',
             uiUnit: 'min',
             convert: (val, toUI) => toUI ? val / 60000 : val * 60000,
-            description: 'Delay before auto-pausing graphs'
+            description: 'Delay before auto-stopping tracking'
         },
         cleanGraphZeroData: {
             default: true,
@@ -214,11 +214,6 @@ window.SettingsManager = class SettingsManager {
             type: 'number',
             unit: 'ms',
             description: 'Chart update throttle interval'
-        },
-        smoothChartLines: {
-            default: true,
-            type: 'boolean',
-            description: 'Remove duplicate values for smoother chart lines'
         },
         chartColors: {
             default: {

@@ -4,12 +4,6 @@ A Chrome extension that tracks and analyzes stream viewers with bot detection ca
 
 ![Viewer Metrics Screenshot](assets/screenshot1.png)
 
-## Important update
-
-Switch to high-churn mode after scan is complete on the few channels that now use short-lived bots
-
-This will under-report the total bots but provides more consistent data
-
 ## 🚀 Installation
 
 1. Download the [latest release](https://github.com/viewermetrics/viewermetrics/releases/tag/v0.9.9) or clone this repository

@@ -225,9 +225,9 @@ class BackgroundService {
         refreshInterval: config.refreshInterval || 30000,
         requestInterval: config.requestInterval || 5000,
         timeoutDuration: config.timeoutDuration || 300000,
-          batchSize: config.batchSize || 20,
-          concurrentUserInfoBatches: config.concurrentUserInfoBatches || 50,
-          viewerListConcurrentCallsInitial: config.viewerListConcurrentCallsInitial || 50,
+        batchSize: config.batchSize || 20,
+        concurrentUserInfoBatches: config.concurrentUserInfoBatches || 50,
+        viewerListConcurrentCallsInitial: config.viewerListConcurrentCallsInitial || 50,
         viewerListConcurrentCallsReduced: config.viewerListConcurrentCallsReduced || 10,
         viewerListNewUserThresholdLow: config.viewerListNewUserThresholdLow || 0.05,
         viewerListNewUserThresholdHigh: config.viewerListNewUserThresholdHigh || 0.10,
@@ -369,7 +369,7 @@ class BackgroundService {
       // Cleanup timed out viewers
       session.intervals.set('cleanup', setInterval(() => {
         this.backgroundCleanupViewers(session);
-      }, 60000)); // Every 1 minute
+      }, 15000)); // Every 15 seconds for responsive timeout removal
 
       // API status updates
       session.intervals.set('apiStatus', setInterval(async () => {
@@ -410,7 +410,7 @@ class BackgroundService {
       session.requestLocks.viewerList = true;
 
       const { channelName } = session;
-      
+
       // Adaptive concurrent calls: start high, reduce once tracking stabilizes
       const concurrentCalls = this.calculateOptimalViewerListConcurrency(session);
       const viewerData = await this.apiManager.getViewerListParallel(channelName, concurrentCalls);
@@ -600,7 +600,7 @@ class BackgroundService {
 
     for (let chunkStart = 0; chunkStart < allBatches.length; chunkStart += maxConcurrentBatches) {
       const batchChunk = allBatches.slice(chunkStart, chunkStart + maxConcurrentBatches);
-      
+
       // Process this chunk of batches concurrently
       const userInfoPromises = batchChunk.map(batch =>
         this.apiManager.getUserInfo(channelName, batch)
@@ -612,7 +612,7 @@ class BackgroundService {
         // Process results from this chunk
         results.forEach((result, index) => {
           const batch = batchChunk[index];
-          
+
           if (result.status === 'fulfilled' && result.value && result.value.length > 0) {
             // Success: add the user info
             allUserInfo.push(...result.value);
@@ -721,8 +721,8 @@ class BackgroundService {
     if (optimalCalls !== metadata.viewerListConcurrentCalls) {
       const oldCalls = metadata.viewerListConcurrentCalls;
       metadata.viewerListConcurrentCalls = optimalCalls;
-      const newUserRate = totalViewersCount > 0 
-        ? ((newUsersCount / totalViewersCount) * 100).toFixed(1) 
+      const newUserRate = totalViewersCount > 0
+        ? ((newUsersCount / totalViewersCount) * 100).toFixed(1)
         : '0.0';
       console.log(`Adjusting viewer list concurrency: ${oldCalls} -> ${optimalCalls} (new user rate: ${newUserRate}%)`);
     }

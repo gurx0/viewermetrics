@@ -6,7 +6,7 @@ A Chrome extension that tracks and analyzes stream viewers with bot detection ca
 
 ## 🚀 Installation
 
-1. Download the [latest release](https://github.com/viewermetrics/viewermetrics/releases/tag/v0.9.9) or clone this repository
+1. Download the [latest release](https://github.com/viewermetrics/viewermetrics/releases/tag/v0.9.91) or clone this repository
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable "Developer mode" (toggle in top right)
 4. Click "Load unpacked" and select the project folder
@@ -30,7 +30,6 @@ A Chrome extension that tracks and analyzes stream viewers with bot detection ca
 2. **Start Tracking**: 
    - The extension UI will appear below the stream
    - Click the "Start Tracking" button to begin monitoring viewers
-   - The extension will automatically capture authentication headers
 
 3. **View Analytics**:
    - **Stats Panel**: Shows total viewers, authenticated users, and detected bots
@@ -39,14 +38,6 @@ A Chrome extension that tracks and analyzes stream viewers with bot detection ca
 
 ## How It Works
 
-### Authentication Header Capture
-The extension intercepts gql requests and captures the following headers:
-- `Client-Integrity`
-- `Client-Session-Id`
-- `Client-Version`
-- `X-Device-Id`
-
-These headers are used to authenticate the extension's own API requests.
 
 ### Viewer Tracking
 1. Fetches the viewer list at configurable intervals (default: 5 seconds)
@@ -55,15 +46,14 @@ These headers are used to authenticate the extension's own API requests.
 4. Fetches account creation dates for new viewers in the background
 
 **Baseline Calculation Algorithm:**
-- **Pre-2021 Analysis**: Analyzes account creation patterns prior to 2021
-- **Baseline Establishment**: Calculates the maximum expected accounts per month post 2021
+- **Pre-2020 Analysis**: Analyzes account creation patterns prior to 2020
+- **Baseline Establishment**: Calculates the maximum expected accounts per month post 2020
 - **Spike Detection**: Identifies months where account creation significantly exceeds the baseline
 - **Automatic Classification**: Accounts created during spike periods are flagged as potential bots, ignoring half the baseline as real users
 - **False Positive Removal**: Only a final bot percentage above 10% is shown
 
 ## Data Storage
 
-- **Session Storage**: Authentication headers (cleared when browser closes)
 - **Local Storage**: Configuration settings (persists across sessions)
 - **Memory Only**: Viewer data (not persisted, cleared when tracking stops)
 

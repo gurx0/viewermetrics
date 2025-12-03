@@ -1,6 +1,7 @@
 // Enhanced Data Manager with observer pattern and better memory management
 // Bot detection constants
 const BOT_DATE_RANGE_MONTHS_FROM_NOW = 1; // Exclude accounts created in past 1 month from bot detection
+const BOT_DATE_RANGE_START = '2020-01-01'; // Bot detection date range start - can be changed here without modifying settings
 
 window.EnhancedDataManager = class DataManager {
   constructor(settingsManager, errorHandler, apiClient) {
@@ -273,7 +274,7 @@ window.EnhancedDataManager = class DataManager {
             updated = true;
           }
 
-          // Update time tracking data if viewer qualifies (creation date >= 2021-01-01)
+          // Update time tracking data if viewer qualifies (creation date >= 2020-01-01)
           this.updateTimeTrackingData(cleanUsername, viewer);
         }
       }
@@ -574,7 +575,7 @@ window.EnhancedDataManager = class DataManager {
   detectBots() {
     try {
       const config = this.settingsManager.get();
-      const startDate = new Date(config.botDateRangeStart);
+      const startDate = new Date(BOT_DATE_RANGE_START);
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() - BOT_DATE_RANGE_MONTHS_FROM_NOW);
 
@@ -768,18 +769,47 @@ window.EnhancedDataManager = class DataManager {
     let totalAccounts = 0;
     let totalNonBots = 0;
     const monthData = [];
+    const now = new Date();
+
+    // Calculate 12 months after BOT_DATE_RANGE_START
+    const botStartDate = new Date(BOT_DATE_RANGE_START);
+    const twelveMonthsAfterStart = new Date(botStartDate);
+    twelveMonthsAfterStart.setMonth(twelveMonthsAfterStart.getMonth() + 12);
 
     for (const [monthKey, count] of monthlyCounts.entries()) {
       const monthDate = new Date(monthKey + '-01');
 
       if (monthDate < startDate) continue;
 
-      // Calculate bots for this month
-      let bots = Math.max(0, count - maxExpectedAccounts);
+      // Calculate month age (how many months ago from now)
+      const monthAge = (now.getFullYear() - monthDate.getFullYear()) * 12 +
+        (now.getMonth() - monthDate.getMonth());
 
-      // If bots detected, use stricter threshold (half expected)
+      // Apply time-based decay for recent months (0-12 months old)
+      // Recent months get more lenient thresholds to avoid false positives during growth
+      let thresholdMultiplier = 1.0;
+
+      // Check if month is in early bot detection period (BOT_START_DATE to +12 months)
+      if (monthDate >= botStartDate && monthDate < twelveMonthsAfterStart) {
+        thresholdMultiplier = 1.5; // Early detection period: More lenient due to COVID growth
+      } else if (monthAge < 3) {
+        thresholdMultiplier = 2; // 0-3 months: Very lenient
+      } else if (monthAge < 6) {
+        thresholdMultiplier = 1.5; // 4-6 months: Moderately lenient
+      } else if (monthAge < 9) {
+        thresholdMultiplier = 1.25; // 7-9 months: Slightly lenient
+      }
+
+      // 12+ months and beyond early period: No decay (strict detection)
+
+      const adjustedThreshold = maxExpectedAccounts * thresholdMultiplier;
+
+      // Calculate bots for this month
+      let bots = Math.max(0, count - adjustedThreshold);
+
+      // If bots detected, use stricter threshold (1/3 of adjusted)
       if (bots > 0) {
-        bots = Math.max(0, count - (maxExpectedAccounts / 3));
+        bots = Math.max(0, count - (adjustedThreshold / 3));
       }
 
       const nonBots = count - bots;
@@ -949,9 +979,9 @@ window.EnhancedDataManager = class DataManager {
       // Convert to array format for easier use in charts
       // Format: [{ month, timeRounded, count }]
 
-      // Generate all months from botDateRangeStart to now (show all months)
+      // Generate all months from BOT_DATE_RANGE_START to now (show all months)
       const config = this.settingsManager.get();
-      const startDate = new Date(config.botDateRangeStart);
+      const startDate = new Date(BOT_DATE_RANGE_START);
       const endDate = new Date(); // Current date - no restriction
 
       const allMonths = [];
@@ -1338,7 +1368,7 @@ window.EnhancedDataManager = class DataManager {
   getCreationDateHistogram() {
     try {
       const config = this.settingsManager.get();
-      const startDate = new Date(config.botDateRangeStart);
+      const startDate = new Date(BOT_DATE_RANGE_START);
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() - BOT_DATE_RANGE_MONTHS_FROM_NOW);
 
@@ -1572,7 +1602,7 @@ window.EnhancedDataManager = class DataManager {
   getAvailableAccountCreationMonths() {
     try {
       const config = this.settingsManager.get();
-      const startDate = new Date(config.botDateRangeStart);
+      const startDate = new Date(BOT_DATE_RANGE_START);
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() - BOT_DATE_RANGE_MONTHS_FROM_NOW);
 

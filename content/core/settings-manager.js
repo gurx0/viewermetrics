@@ -119,11 +119,6 @@ window.SettingsManager = class SettingsManager {
             type: 'date',
             description: 'Bot pre-detection date range start'
         },
-        botDateRangeStart: {
-            default: '2021-01-01',
-            type: 'date',
-            description: 'Bot detection date range start'
-        },
 
         // Data Management
         maxHistoryPoints: {
@@ -149,12 +144,12 @@ window.SettingsManager = class SettingsManager {
             description: 'Max viewer list size'
         },
         cleanupInterval: {
-            default: 60000,
-            min: 10000,
-            max: 300000,
+            default: 15000,
+            min: 5000,
+            max: 60000,
             type: 'number',
             unit: 'ms',
-            description: 'Data cleanup interval'
+            description: 'Viewer timeout cleanup interval (checks for timed out viewers)'
         },
         stuckRequestThreshold: {
             default: 600000,

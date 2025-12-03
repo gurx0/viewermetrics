@@ -78,7 +78,7 @@ export class ApiManager {
     await this.processConcurrentRequests();
 
     this.isProcessing = false;
-    
+
     // Auto-restart processing if queue has new items
     if (this.requestQueue.length > 0) {
       this.processQueue();
@@ -90,16 +90,16 @@ export class ApiManager {
     console.log(`Queue has ${this.requestQueue.length} requests, using concurrent processing with ${this.concurrentUserInfoBatches} concurrent batches`);
 
     while (this.requestQueue.length > 0) {
-      // Check if we need to reset the rate limit counter
+      // Use rolling window rate limiting (matches actual requests per minute display)
       const now = Date.now();
-      if (now - this.lastResetTime >= this.requestWindow) {
-        this.requestCount = 0;
-        this.lastResetTime = now;
-      }
+      const oneMinuteAgo = now - 60000;
+      const requestsInLastMinute = this.dataStats.recentRequests.filter(
+        req => req.timestamp > oneMinuteAgo
+      ).length;
 
-      // Check if we've hit the rate limit
-      if (this.requestCount >= this.maxRequests) {
-        console.warn('Rate limit reached, waiting...');
+      // Check if we've hit the rate limit based on rolling window
+      if (requestsInLastMinute >= this.maxRequests) {
+        console.warn('Rate limit reached (rolling window), waiting...');
         await new Promise(resolve => setTimeout(resolve, 1000));
         continue;
       }
@@ -108,7 +108,7 @@ export class ApiManager {
       const concurrentRequests = [];
       const maxConcurrent = Math.min(
         this.concurrentUserInfoBatches,
-        this.maxRequests - this.requestCount,
+        this.maxRequests - requestsInLastMinute,
         this.requestQueue.length
       );
 
@@ -125,7 +125,7 @@ export class ApiManager {
 
       // Execute requests concurrently
       await this.executeConcurrentRequests(concurrentRequests);
-      
+
       // No delay - process next batch immediately to maximize throughput
     }
   }
@@ -961,12 +961,18 @@ export class ApiManager {
   }
 
   getRateLimitStatus() {
+    const now = Date.now();
+    const oneMinuteAgo = now - 60000;
+    const requestsInLastMinute = this.dataStats.recentRequests.filter(
+      req => req.timestamp > oneMinuteAgo
+    ).length;
+
     return {
-      requestCount: this.requestCount,
+      requestCount: requestsInLastMinute,
       maxRequests: this.maxRequests,
-      available: this.maxRequests - this.requestCount, // Add available field
+      available: this.maxRequests - requestsInLastMinute,
       queueLength: this.requestQueue.length,
-      percentUsed: (this.requestCount / this.maxRequests) * 100
+      percentUsed: (requestsInLastMinute / this.maxRequests) * 100
     };
   }
 }

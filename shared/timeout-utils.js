@@ -12,25 +12,23 @@ function calculateAutoTimeout(totalAuthenticatedCount) {
         return null; // Caller should use default
     }
 
-    // Tiered timeout system:
-    // <200 users: 1 minute
-    // <500 users: 2 minutes
-    // <1000 users: 3 minutes
-    // <5000 users: 4 minutes
-    // 5000+ users: 5 minutes base + 1 minute per 2000 additional users
+    // Tiered timeout system (optimized for concurrent API processing):
+    // Based on real performance: 33,000 users = 60-120 seconds
+    // <1000 users: 45 seconds
+    // <5000 users: 1 minute
+    // <15000 users: 90 seconds
+    // 15000+ users: 2 minutes base + 10 seconds per 10000 additional users
     let timeoutMinutes;
 
-    if (totalAuthenticatedCount < 200) {
-        timeoutMinutes = 1;
-    } else if (totalAuthenticatedCount < 500) {
-        timeoutMinutes = 2;
-    } else if (totalAuthenticatedCount < 1000) {
-        timeoutMinutes = 3;
+    if (totalAuthenticatedCount < 1000) {
+        timeoutMinutes = 0.75; // 45 seconds
     } else if (totalAuthenticatedCount < 5000) {
-        timeoutMinutes = 4;
+        timeoutMinutes = 1; // 1 minute
+    } else if (totalAuthenticatedCount < 15000) {
+        timeoutMinutes = 1.5; // 90 seconds
     } else {
-        // 5000+ viewers: 5 minutes base + 1 minute per 2000 viewers
-        timeoutMinutes = 5 + Math.floor((totalAuthenticatedCount - 5000) / 2000);
+        // 15000+ viewers: 2 minutes base + 10 seconds per 10000 viewers
+        timeoutMinutes = 2 + Math.floor((totalAuthenticatedCount - 15000) / 10000) * 0.167;
     }
 
     return timeoutMinutes * 60000; // Convert to milliseconds
@@ -47,11 +45,11 @@ function calculateAutoRequestInterval(totalAuthenticatedCount) {
     }
 
     // Tiered request interval:
-    // <500 users: 5 seconds
-    // <1000 users: 2 seconds
-    // 1000+ users: 1 second
-    if (totalAuthenticatedCount < 500) return 5000;
-    if (totalAuthenticatedCount < 1000) return 2000;
+    // <1000 users: 5 seconds
+    // <5000 users: 2 seconds
+    // 5000+ users: 1 second
+    if (totalAuthenticatedCount < 1000) return 5000;
+    if (totalAuthenticatedCount < 5000) return 2000;
     return 1000;
 }
 

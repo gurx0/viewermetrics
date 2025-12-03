@@ -1,13 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Viewer Metrics",
-  "version": "0.9.82",
+  "version": "0.9.91",
   "description": "Track and analyze stream viewers with bot detection",
   "permissions": [
     "storage",
     "tabs",
-    "webRequest",
-    "webRequestAuthProvider",
     "scripting"
   ],
   "host_permissions": [

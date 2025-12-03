@@ -2,6 +2,13 @@
 
 All notable changes to the Viewer Metrics Chrome Extension will be documented in this file.
 
+## [0.9.91] - 2025-12-03
+- Implement concurrent batch processing for user info requests to maximize throughput
+- Remove request-interceptor.js as we now use a simplified client ID that doesn't require auth token interception
+- Always use simple headers (Client-Id) instead of intercepting authentication tokens
+- More lenient calculation in botted months to avoid false positives
+- Updated to use 2020 as base year as more bots have been brought online from that period
+
 ## [0.9.9] - 2025-11-29
 - New High Churn mode for channels with short-lived bots
 - Re-worked the stats display to be more intuitive

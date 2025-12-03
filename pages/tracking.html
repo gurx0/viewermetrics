@@ -88,7 +88,7 @@
                                     style="font-size: 14px; line-height: 1.4;">
                                     Users Found: <span id="tvm-authenticated">0</span><br>
                                     Pending: <span id="tvm-pending">0</span><br>
-                                    Available: <span id="tvm-api-calls">0/500</span>
+                                    Available: <span id="tvm-api-calls">0/5000</span>
                                 </span>
                             </div>
                         </div>
@@ -239,7 +239,7 @@
                                                         <div>
                                                             Auto-adjust request interval based on authenticated users
                                                             <div style="font-size: 12px; color: #999; margin-top: 5px;">
-                                                                &lt;500 users: 5s, &lt;1000 users: 2s, 1000+ users: 1s
+                                                                &lt;1000 users: 5s, &lt;5000 users: 2s, 5000+ users: 1s
                                                             </div>
                                                             <div id="tvm-effective-request-interval"
                                                                 style="font-size: 12px; color: #00ff88; margin-top: 5px; font-weight: bold; display: none;">
@@ -264,8 +264,8 @@
                                                         <div>
                                                             Auto-adjust timeout based on authenticated users
                                                             <div style="font-size: 12px; color: #999; margin-top: 5px;">
-                                                                Automatically calculates timeout: 5min for &lt;5000
-                                                                authenticated users, +1min per 2000 users
+                                                                Optimized for concurrent API processing: 30s-2min based
+                                                                on viewer count
                                                             </div>
                                                             <div id="tvm-effective-timeout"
                                                                 style="font-size: 12px; color: #00ff88; margin-top: 5px; font-weight: bold; display: none;">

@@ -8,6 +8,7 @@ window.EnhancedDataManager = class DataManager {
     this.settingsManager = settingsManager;
     this.errorHandler = errorHandler;
     this.apiClient = apiClient;
+    this.exportManager = new window.ExportManager(errorHandler);
 
     this.state = {
       viewers: new Map(),
@@ -37,6 +38,8 @@ window.EnhancedDataManager = class DataManager {
     this.cleanupInterval = null;
     this.heatmapProcessInterval = null;
     this.heatmapEnabled = true; // Heatmap tracking enabled by default
+    this.isAnalysisMode = false; // Analysis mode for viewing imported historical data
+    this.analysisMetadata = null; // Store metadata about imported session
 
     // Time tracking data for heatmap (persists even after viewer removal)
     // Structure: Map<username, { createdAt, currentTimeInStream, pastTimeInStream }>
@@ -149,24 +152,28 @@ window.EnhancedDataManager = class DataManager {
         this.state.history = this.state.history.slice(-config.maxHistoryPoints);
       }
 
-      // Skip viewer timeout cleanup if background tracking is active
+      // Skip viewer timeout cleanup if background tracking is active or in analysis mode
       // Background service handles viewer cleanup in that case
+      // Analysis mode preserves all imported viewers for historical analysis
       let timedOutCount = 0;
-      if (!this.apiClient || !this.apiClient.isBackgroundTracking) {
+      if (!this.isAnalysisMode && (!this.apiClient || !this.apiClient.isBackgroundTracking)) {
         timedOutCount = this.removeTimedOutViewers();
       }
 
       // Enhanced viewer cleanup: Remove viewers inactive for 24+ hours BEFORE memory-based cleanup
+      // Skip in analysis mode to preserve imported historical data
       const currentTime = Date.now();
       const inactivityThreshold = 24 * 60 * 60 * 1000; // 24 hours
       let inactiveCount = 0;
 
-      // First pass: Remove viewers inactive for 24+ hours
-      for (const [username, viewer] of this.state.viewers) {
-        if (viewer.lastSeen && (currentTime - viewer.lastSeen > inactivityThreshold)) {
-          this.state.viewers.delete(username);
-          this.pendingUserInfo.delete(username);
-          inactiveCount++;
+      // First pass: Remove viewers inactive for 24+ hours (skip in analysis mode)
+      if (!this.isAnalysisMode) {
+        for (const [username, viewer] of this.state.viewers) {
+          if (viewer.lastSeen && (currentTime - viewer.lastSeen > inactivityThreshold)) {
+            this.state.viewers.delete(username);
+            this.pendingUserInfo.delete(username);
+            inactiveCount++;
+          }
         }
       }
 
@@ -229,6 +236,11 @@ window.EnhancedDataManager = class DataManager {
 
   // Viewer management with validation
   addViewers(usernames) {
+    // Don't add viewers in analysis mode (viewing historical data)
+    if (this.isAnalysisMode) {
+      return [];
+    }
+
     if (!Array.isArray(usernames)) {
       throw new Error('usernames must be an array');
     }
@@ -248,6 +260,7 @@ window.EnhancedDataManager = class DataManager {
         if (!this.state.viewers.has(cleanUsername)) {
           this.state.viewers.set(cleanUsername, {
             username: cleanUsername,
+            id: null,
             firstSeen: now,
             lastSeen: now,
             createdAt: null,
@@ -868,17 +881,25 @@ window.EnhancedDataManager = class DataManager {
       let trackingEntry = this.timeTrackingData.get(username);
 
       if (!trackingEntry) {
-        // Create new entry
+        // Create new entry with all viewer data
         trackingEntry = {
           username: username,
+          id: viewer.id || null,
           createdAt: viewer.createdAt,
+          firstSeen: viewer.firstSeen,
+          lastSeen: viewer.lastSeen,
           currentTimeInStream: timeInStream,
           pastTimeInStream: 0
         };
         this.timeTrackingData.set(username, trackingEntry);
       } else {
-        // Update existing entry's current time
+        // Update existing entry
         trackingEntry.currentTimeInStream = timeInStream;
+        trackingEntry.lastSeen = viewer.lastSeen;
+        // Update ID if it wasn't set before
+        if (viewer.id && !trackingEntry.id) {
+          trackingEntry.id = viewer.id;
+        }
       }
     } catch (error) {
       this.errorHandler?.handle(error, 'DataManager Update Time Tracking', { username });
@@ -897,12 +918,20 @@ window.EnhancedDataManager = class DataManager {
         // Add current time to past time and reset current
         trackingEntry.pastTimeInStream += trackingEntry.currentTimeInStream;
         trackingEntry.currentTimeInStream = 0;
+        trackingEntry.lastSeen = viewer.lastSeen;
+        // Update ID if it wasn't set before
+        if (viewer.id && !trackingEntry.id) {
+          trackingEntry.id = viewer.id;
+        }
       } else {
         // Create entry with just past time
         const timeInStream = viewer.lastSeen - viewer.firstSeen;
         this.timeTrackingData.set(username, {
           username: username,
+          id: viewer.id || null,
           createdAt: viewer.createdAt,
+          firstSeen: viewer.firstSeen,
+          lastSeen: viewer.lastSeen,
           currentTimeInStream: 0,
           pastTimeInStream: timeInStream
         });
@@ -1017,6 +1046,11 @@ window.EnhancedDataManager = class DataManager {
 
   // History management
   addHistoryPoint(totalViewers, authenticatedNonBots, bots, totalAuthenticated = 0) {
+    // Don't add history points in analysis mode (viewing historical data)
+    if (this.isAnalysisMode) {
+      return;
+    }
+
     try {
       const config = this.settingsManager.get();
       const now = Date.now();
@@ -1639,4 +1673,218 @@ window.EnhancedDataManager = class DataManager {
       return [];
     }
   }
+
+  // Export tracking data methods
+  exportTrackingDataAsCSV(channelName = '') {
+    const data = this.getExportTrackingData();
+    return this.exportManager.exportTrackingDataAsCSV(channelName, data);
+  }
+
+  exportTrackingDataAsXML(channelName = '') {
+    const data = this.getExportTrackingData();
+    return this.exportManager.exportTrackingDataAsXML(channelName, data);
+  }
+
+  exportTrackingDataAsSQL(channelName = '') {
+    const data = this.getExportTrackingData();
+    return this.exportManager.exportTrackingDataAsSQL(channelName, data);
+  }
+
+  getExportTrackingData() {
+    const exportData = [];
+
+    // Combine viewer data with time tracking data
+    for (const [username, trackingEntry] of this.timeTrackingData.entries()) {
+      const viewer = this.state.viewers.get(username);
+      const totalTime = trackingEntry.currentTimeInStream + trackingEntry.pastTimeInStream;
+
+      // Use trackingEntry data first, fallback to viewer data
+      const id = trackingEntry.id || viewer?.id || null;
+      const firstSeen = trackingEntry.firstSeen ? new Date(trackingEntry.firstSeen).toISOString() :
+        (viewer ? new Date(viewer.firstSeen).toISOString() : null);
+      const lastSeen = trackingEntry.lastSeen ? new Date(trackingEntry.lastSeen).toISOString() :
+        (viewer ? new Date(viewer.lastSeen).toISOString() : null);
+
+      exportData.push({
+        username: username,
+        id: id,
+        createdAt: trackingEntry.createdAt || null,
+        firstSeen: firstSeen,
+        lastSeen: lastSeen,
+        timeInStream: totalTime
+      });
+    }
+
+    // Sort by username
+    exportData.sort((a, b) => a.username.localeCompare(b.username));
+
+    return exportData;
+  }
+
+  // Export viewer graph history data methods
+  exportViewerGraphDataAsCSV(channelName = '') {
+    const data = this.getViewerGraphHistoryData();
+    return this.exportManager.exportViewerGraphDataAsCSV(channelName, data);
+  }
+
+  exportViewerGraphDataAsXML(channelName = '') {
+    const data = this.getViewerGraphHistoryData();
+    return this.exportManager.exportViewerGraphDataAsXML(channelName, data);
+  }
+
+  exportViewerGraphDataAsSQL(channelName = '') {
+    const data = this.getViewerGraphHistoryData();
+    return this.exportManager.exportViewerGraphDataAsSQL(channelName, data);
+  }
+
+  exportViewerGraphDataAsJSON(channelName = '') {
+    const data = this.getViewerGraphHistoryData();
+    return this.exportManager.exportViewerGraphDataAsJSON(channelName, data);
+  }
+
+  exportTrackingDataAsJSON(channelName = '') {
+    const data = this.getExportTrackingData();
+    return this.exportManager.exportTrackingDataAsJSON(channelName, data);
+  }
+
+  // Export full state as JSON (for complete session backup/restore)
+  exportFullStateAsJSON(channelName = '') {
+    try {
+      const fullStateData = {
+        timeTrackingData: Array.from(this.timeTrackingData.entries()),
+        history: this.state.history,
+        viewers: Array.from(this.state.viewers.entries()),
+        metadata: {
+          ...this.state.metadata,
+          exportedAt: new Date().toISOString()
+        }
+      };
+      return this.exportManager.exportFullStateAsJSON(channelName, fullStateData);
+    } catch (error) {
+      this.errorHandler?.handle(error, 'Export Full State');
+      throw error;
+    }
+  }
+
+  // Import full state from JSON and enter analysis mode
+  importFullStateFromJSON(jsonString) {
+    try {
+      const importData = JSON.parse(jsonString);
+
+      // Validate import data structure
+      if (!importData.version || !importData.type || importData.type !== 'full_state') {
+        throw new Error('Invalid import file format');
+      }
+
+      if (!importData.channel) {
+        throw new Error('Import file missing channel name');
+      }
+
+      // Enter analysis mode (stops all data modifications)
+      this.isAnalysisMode = true;
+      this.analysisMetadata = {
+        channel: importData.channel,
+        exportedAt: importData.exportedAt,
+        importedAt: new Date().toISOString()
+      };
+
+      // Clear pending user info (no API requests in analysis mode)
+      this.pendingUserInfo.clear();
+
+      // Restore time tracking data
+      if (importData.timeTrackingData) {
+        this.timeTrackingData = new Map(importData.timeTrackingData);
+      }
+
+      // Restore history
+      if (importData.history) {
+        this.state.history = importData.history;
+      }
+
+      // Restore viewers (preserved for analysis)
+      if (importData.viewers) {
+        this.state.viewers = new Map(importData.viewers);
+      }
+
+      // Restore metadata (but update lastUpdated)
+      if (importData.metadata) {
+        this.state.metadata = {
+          ...importData.metadata,
+          lastUpdated: Date.now()
+        };
+      }
+
+      // Process heatmap data if enabled
+      if (this.heatmapEnabled) {
+        this.processHeatmapData();
+      }
+
+      // Notify all observers of the import and analysis mode
+      this.notify('analysisMode', {
+        enabled: true,
+        channel: importData.channel,
+        exportedAt: importData.exportedAt,
+        importedAt: new Date().toISOString(),
+        trackingDataCount: this.timeTrackingData.size,
+        historyPoints: this.state.history.length,
+        viewerCount: this.state.viewers.size
+      });
+
+      return {
+        success: true,
+        channel: importData.channel,
+        exportedAt: importData.exportedAt,
+        trackingDataCount: this.timeTrackingData.size,
+        historyPoints: this.state.history.length,
+        viewerCount: this.state.viewers.size
+      };
+    } catch (error) {
+      this.errorHandler?.handle(error, 'Import Full State');
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Exit analysis mode and clear data
+  exitAnalysisMode() {
+    try {
+      this.isAnalysisMode = false;
+      this.analysisMetadata = null;
+
+      // Clear all data
+      this.clear();
+
+      // Notify observers
+      this.notify('analysisMode', { enabled: false });
+
+      return { success: true };
+    } catch (error) {
+      this.errorHandler?.handle(error, 'Exit Analysis Mode');
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Check if in analysis mode
+  isInAnalysisMode() {
+    return this.isAnalysisMode;
+  }
+
+  // Get analysis mode metadata
+  getAnalysisMetadata() {
+    return this.analysisMetadata;
+  }
+
+  getViewerGraphHistoryData() {
+    // Return history data with formatted structure for export
+    return this.state.history.map(point => ({
+      timestamp: new Date(point.timestamp).toISOString(),
+      totalViewers: point.totalViewers || 0,
+      totalAuthenticated: point.totalAuthenticated || 0,
+      authenticatedNonBots: point.authenticatedNonBots || 0,
+      bots: point.bots || 0
+    }));
+  }
 }
+

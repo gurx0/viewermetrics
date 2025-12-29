@@ -1,6 +1,13 @@
 # Changelog
-
 All notable changes to the Viewer Metrics Chrome Extension will be documented in this file.
+
+## [0.10.0] - 2025-23-29
+- Added UI for managing multiple channels directly from Twitch page
+- Implemented automatic CSV export with configurable intervals
+- Added multi-channel manager for background tracking
+- Created CSV writer for automatic data export
+- Updated background service to support multiple simultaneous channels
+- Improved UI with toggle switches and channel management controls
 
 ## [0.9.951] - 2025-12-12
 - Fixed event listener cleanup

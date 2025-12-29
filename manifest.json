@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Viewer Metrics",
-  "version": "0.9.951",
+  "version": "0.10.0",
   "description": "Track and analyze stream viewers with bot detection",
   "permissions": [
     "storage",
     "tabs",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   "host_permissions": [
     "*://gql.twitch.tv/*",

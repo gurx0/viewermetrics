@@ -1,6 +1,8 @@
 // Background service worker for Viewer Metrics
 import { ApiManager } from './api-manager.js';
 import { calculateAutoTimeout, calculateAutoRequestInterval } from '../shared/timeout-utils.module.js';
+import { CSVWriter } from './csv-writer.js';
+import { MultiChannelManager } from './multi-channel-manager.js';
 
 class BackgroundService {
   constructor() {
@@ -9,6 +11,12 @@ class BackgroundService {
 
     // Background tracking state
     this.trackingSessions = new Map(); // channelName -> { config, intervals, data, tabId }
+
+    // CSV writer for automatic data export
+    this.csvWriter = new CSVWriter();
+
+    // Multi-channel manager
+    this.multiChannelManager = null; // Will be initialized after this.init()
 
     this.init();
   }
@@ -20,6 +28,28 @@ class BackgroundService {
       return true; // Keep channel open for async response
     });
 
+    // Initialize multi-channel manager
+    this.multiChannelManager = new MultiChannelManager(this);
+
+    // Initialize CSV writer with default config
+    this.csvWriter.init({
+      enabled: false, // Disabled by default, enable via config
+      writeIntervalMs: 60000, // Write every minute
+      outputDirectory: 'twitch_viewer_data'
+    });
+
+    // Set up periodic CSV writing that uses tracking sessions
+    this.setupCSVWriting();
+  }
+
+  // Setup periodic CSV writing
+  setupCSVWriting() {
+    // Store reference to background service for CSV writer
+    const self = this;
+    const originalWrite = this.csvWriter.writeAllChannelsToCSV.bind(this.csvWriter);
+    this.csvWriter.writeAllChannelsToCSV = async function() {
+      return await originalWrite(self.trackingSessions);
+    };
   }
 
 
@@ -151,6 +181,73 @@ class BackgroundService {
           sendResponse(openTrackingResult);
           break;
 
+        // Multi-channel management
+        case 'ADD_MULTI_CHANNEL':
+          const addResult = await this.multiChannelManager.addChannel(message.channelName, message.config);
+          sendResponse(addResult);
+          break;
+
+        case 'REMOVE_MULTI_CHANNEL':
+          const removeResult = await this.multiChannelManager.removeChannel(message.channelName);
+          sendResponse(removeResult);
+          break;
+
+        case 'GET_MULTI_CHANNELS':
+          const channels = this.multiChannelManager.getChannels();
+          sendResponse({ success: true, channels });
+          break;
+
+        case 'GET_MULTI_CHANNEL_STATUS':
+          const status = this.multiChannelManager.getTrackingStatus();
+          sendResponse({ success: true, status });
+          break;
+
+        case 'SET_CHANNEL_ENABLED':
+          const enableResult = await this.multiChannelManager.setChannelEnabled(message.channelName, message.enabled);
+          sendResponse(enableResult);
+          break;
+
+        case 'START_ALL_CHANNELS':
+          const startAllResult = await this.multiChannelManager.startAllEnabledChannels();
+          sendResponse({ success: true, results: startAllResult });
+          break;
+
+        case 'STOP_ALL_CHANNELS':
+          const stopAllResult = await this.multiChannelManager.stopAllChannels();
+          sendResponse({ success: true, results: stopAllResult });
+          break;
+
+        case 'SET_AUTO_START_ENABLED':
+          const autoStartResult = await this.multiChannelManager.setAutoStartEnabled(message.enabled);
+          sendResponse(autoStartResult);
+          break;
+
+        case 'UPDATE_CHANNEL_CONFIG':
+          const updateChannelResult = await this.multiChannelManager.updateChannelConfig(message.channelName, message.config);
+          sendResponse(updateChannelResult);
+          break;
+
+        // CSV export management
+        case 'ENABLE_CSV_EXPORT':
+          this.csvWriter.updateConfig({ enabled: true, ...message.config });
+          sendResponse({ success: true });
+          break;
+
+        case 'DISABLE_CSV_EXPORT':
+          this.csvWriter.updateConfig({ enabled: false });
+          sendResponse({ success: true });
+          break;
+
+        case 'UPDATE_CSV_CONFIG':
+          this.csvWriter.updateConfig(message.config);
+          sendResponse({ success: true });
+          break;
+
+        case 'EXPORT_CHANNEL_TO_CSV':
+          const exportResult = await this.exportChannelToCSV(message.channelName);
+          sendResponse(exportResult);
+          break;
+
         default:
           sendResponse({ success: false, error: 'Unknown message type' });
       }
@@ -196,29 +293,38 @@ class BackgroundService {
   // Background Tracking Methods
   async startBackgroundTracking(channelName, config, tabId) {
     try {
-      // Stop ALL existing tracking sessions to prevent conflicts
-      const existingSessions = Array.from(this.trackingSessions.keys());
-      for (const existingChannel of existingSessions) {
-        console.log(`Stopping existing background tracking for ${existingChannel} before starting ${channelName}`);
-        await this.stopBackgroundTracking(existingChannel);
+      // Check if session already exists for this channel
+      if (this.trackingSessions.has(channelName)) {
+        console.log(`Tracking session already exists for ${channelName}, skipping`);
+        return { success: true, message: 'Session already exists' };
+      }
 
-        // Notify the tab that tracking was stopped
-        const existingSession = this.trackingSessions.get(existingChannel);
-        if (existingSession && existingSession.tabId !== tabId) {
-          try {
-            await chrome.tabs.sendMessage(existingSession.tabId, {
-              type: 'TRACKING_STOPPED_BY_OTHER_TAB',
-              stoppedChannel: existingChannel,
-              newChannel: channelName,
-              reason: 'New tracking session started'
-            });
-          } catch (error) {
-            console.log('Could not notify other tab:', error);
+      // Allow multiple channels to be tracked simultaneously
+      // Only stop if explicitly requested via stopAllSessions flag
+      if (config.stopAllSessions) {
+        const existingSessions = Array.from(this.trackingSessions.keys());
+        for (const existingChannel of existingSessions) {
+          console.log(`Stopping existing background tracking for ${existingChannel} before starting ${channelName}`);
+          await this.stopBackgroundTracking(existingChannel);
+
+          // Notify the tab that tracking was stopped
+          const existingSession = this.trackingSessions.get(existingChannel);
+          if (existingSession && existingSession.tabId !== tabId) {
+            try {
+              await chrome.tabs.sendMessage(existingSession.tabId, {
+                type: 'TRACKING_STOPPED_BY_OTHER_TAB',
+                stoppedChannel: existingChannel,
+                newChannel: channelName,
+                reason: 'New tracking session started'
+              });
+            } catch (error) {
+              console.log('Could not notify other tab:', error);
+            }
           }
         }
       }
 
-      console.log(`Starting background tracking for ${channelName}`);
+      console.log(`Starting background tracking for ${channelName}${tabId ? ` (tab: ${tabId})` : ' (background-only, no tab)'}`);
 
       // Initialize tracking session
       const sessionConfig = {
@@ -376,10 +482,12 @@ class BackgroundService {
         await this.sendApiStatusUpdate(session);
       }, 5000)); // Every 5 seconds
 
-      // Session health check - verify tab is still reachable
-      session.intervals.set('healthCheck', setInterval(async () => {
-        await this.checkSessionHealth(session);
-      }, 10000)); // Every 10 seconds
+      // Session health check - verify tab is still reachable (only for sessions with tabId)
+      if (session.tabId) {
+        session.intervals.set('healthCheck', setInterval(async () => {
+          await this.checkSessionHealth(session);
+        }, 10000)); // Every 10 seconds
+      }
 
       console.log(`Background intervals setup for ${channelName}`);
 
@@ -888,6 +996,11 @@ class BackgroundService {
   }
 
   async sendTrackingUpdate(session, data) {
+    // Skip sending updates for background-only sessions (no tabId)
+    if (!session.tabId || session.tabId === null) {
+      return; // Background-only tracking doesn't need to send updates to tabs
+    }
+
     try {
       // Try to send message to the tab (works for content scripts and extension pages)
       await chrome.tabs.sendMessage(session.tabId, {
@@ -947,6 +1060,11 @@ class BackgroundService {
 
   async checkSessionHealth(session) {
     try {
+      // Skip health check for background-only sessions (no tabId)
+      if (!session.tabId || session.tabId === null) {
+        return; // Background-only tracking doesn't need tab health check
+      }
+
       // Only check if we have recent communication failures
       if (session.communicationFailures.firstFailure) {
         const now = Date.now();
@@ -1130,6 +1248,36 @@ class BackgroundService {
     } catch (error) {
       console.error('Error finding existing tracking page:', error);
       return null;
+    }
+  }
+
+  // Export channel data to CSV
+  async exportChannelToCSV(channelName) {
+    try {
+      const session = this.trackingSessions.get(channelName);
+      if (!session) {
+        return { success: false, error: 'Channel not being tracked' };
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const dateStr = new Date().toISOString().split('T')[0];
+
+      await this.csvWriter.writeChannelDataToCSV(channelName, session, timestamp, dateStr);
+
+      // Also export history if available
+      if (session.data.history && session.data.history.length > 0) {
+        await this.csvWriter.writeViewerCountHistoryToCSV(
+          channelName,
+          session.data.history,
+          timestamp,
+          dateStr
+        );
+      }
+
+      return { success: true, channelName };
+    } catch (error) {
+      console.error('Error exporting channel to CSV:', error);
+      return { success: false, error: error.message };
     }
   }
 }

@@ -1924,3 +1924,265 @@
   font-size: 13px;
   padding: 20px 10px;
 }
+
+/* Multi-Channel Management Styles */
+.tvm-multi-channel-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: #18181b;
+  border-radius: 8px;
+  border: 1px solid #2e2e35;
+}
+
+.tvm-multi-channel-section h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #efeff1;
+}
+
+/* Toggle Switch */
+.tvm-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.tvm-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.tvm-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #2e2e35;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.tvm-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+.tvm-toggle-switch input:checked + .tvm-toggle-slider {
+  background-color: #9147ff;
+}
+
+.tvm-toggle-switch input:checked + .tvm-toggle-slider:before {
+  transform: translateX(20px);
+}
+
+.tvm-toggle-switch input:disabled + .tvm-toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Channel List Items */
+.tvm-channel-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background: #0e0e10;
+  border-radius: 4px;
+  border: 1px solid #2e2e35;
+  margin-bottom: 8px;
+}
+
+.tvm-channel-item:hover {
+  border-color: #9147ff;
+  background: #1a1a1d;
+}
+
+/* Scrollable Channel List */
+#tvm-channels-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+#tvm-channels-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#tvm-channels-list::-webkit-scrollbar-track {
+  background: #0e0e10;
+  border-radius: 3px;
+}
+
+#tvm-channels-list::-webkit-scrollbar-thumb {
+  background: #2e2e35;
+  border-radius: 3px;
+}
+
+#tvm-channels-list::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3d;
+}
+
+/* Input Fields */
+#tvm-add-channel-input,
+#tvm-csv-interval {
+  flex: 1;
+  padding: 8px 12px;
+  background: #0e0e10;
+  border: 1px solid #2e2e35;
+  border-radius: 4px;
+  color: #efeff1;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+#tvm-add-channel-input:focus,
+#tvm-csv-interval:focus {
+  outline: none;
+  border-color: #9147ff;
+}
+
+#tvm-add-channel-input::placeholder {
+  color: #6e6e73;
+}
+
+#tvm-add-channel-input:hover,
+#tvm-csv-interval:hover {
+  border-color: #3a3a3d;
+}
+
+/* Channel Action Buttons */
+.tvm-channel-toggle,
+.tvm-channel-remove {
+  padding: 4px 8px;
+  font-size: 11px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  font-weight: 600;
+}
+
+.tvm-channel-toggle {
+  background: #9147ff;
+  color: #efeff1;
+}
+
+.tvm-channel-toggle:hover {
+  background: #772ce8;
+  transform: translateY(-1px);
+}
+
+.tvm-channel-toggle:active {
+  transform: translateY(0);
+}
+
+.tvm-channel-remove {
+  background: #e91916;
+  color: #efeff1;
+}
+
+.tvm-channel-remove:hover {
+  background: #c20400;
+  transform: translateY(-1px);
+}
+
+.tvm-channel-remove:active {
+  transform: translateY(0);
+}
+
+/* Show/Hide Multi-Channel Button */
+#tvm-show-multi-channel {
+  font-size: 12px;
+  color: #adadb8;
+  background: transparent;
+  border: 1px solid #2e2e35;
+}
+
+#tvm-show-multi-channel:hover {
+  color: #efeff1;
+  border-color: #9147ff;
+  background: rgba(145, 71, 255, 0.1);
+}
+
+/* Multi-Channel Section Improvements */
+.tvm-multi-channel-section input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.tvm-multi-channel-section input[type="number"]::-webkit-outer-spin-button,
+.tvm-multi-channel-section input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Channel Status Indicators */
+.tvm-channel-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.tvm-channel-status.tracking {
+  background: rgba(0, 217, 255, 0.1);
+  color: #00d9ff;
+}
+
+.tvm-channel-status.stopped {
+  background: rgba(173, 173, 184, 0.1);
+  color: #adadb8;
+}
+
+.tvm-channel-status.paused {
+  background: rgba(255, 165, 0, 0.1);
+  color: #ffa500;
+}
+
+/* Responsive adjustments for multi-channel section */
+@media (max-width: 768px) {
+  .tvm-multi-channel-section {
+    padding: 12px;
+  }
+  
+  .tvm-multi-channel-section h3 {
+    font-size: 14px;
+  }
+  
+  #tvm-channels-list {
+    max-height: 150px;
+  }
+  
+  .tvm-channel-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .tvm-channel-item > div:last-child {
+    width: 100%;
+    display: flex;
+    gap: 4px;
+  }
+  
+  .tvm-channel-toggle,
+  .tvm-channel-remove {
+    flex: 1;
+  }
+}

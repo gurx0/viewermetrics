@@ -2,7 +2,7 @@
 export class ApiManager {
   constructor() {
     this.requestQueue = [];
-    this.requestCount = 0;
+    this.requestCount = 
     this.maxRequests = 5000; // API call limit per minute
     this.requestWindow = 60000; // 1 minute
     this.isProcessing = false;

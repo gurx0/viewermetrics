@@ -20,6 +20,62 @@ window.HTMLTemplates = class HTMLTemplates {
             Start Tracking
           </button>
         </div>
+        
+        <!-- Multi-Channel Management Section -->
+        <div id="tvm-multi-channel-section" class="tvm-multi-channel-section" style="display: none; margin-top: 20px; padding: 16px; background: #18181b; border-radius: 8px; border: 1px solid #2e2e35;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: #efeff1;">Multi-Channel Tracking</h3>
+            <button id="tvm-toggle-multi-channel" class="tvm-btn tvm-btn-small" style="font-size: 12px;">Hide</button>
+          </div>
+          
+          <!-- Add Channel -->
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+              <input type="text" id="tvm-add-channel-input" placeholder="Enter channel name" 
+                style="flex: 1; padding: 8px 12px; background: #0e0e10; border: 1px solid #2e2e35; border-radius: 4px; color: #efeff1; font-size: 14px;">
+              <button id="tvm-add-channel-btn" class="tvm-btn tvm-btn-primary" style="padding: 8px 16px;">Add Channel</button>
+            </div>
+          </div>
+          
+          <!-- Channel List -->
+          <div id="tvm-channels-list" style="margin-bottom: 16px; max-height: 200px; overflow-y: auto;">
+            <div style="text-align: center; padding: 20px; color: #adadb8; font-size: 14px;">Loading channels...</div>
+          </div>
+          
+          <!-- Actions -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">
+            <button id="tvm-start-all-channels" class="tvm-btn tvm-btn-secondary" style="flex: 1; min-width: 120px;">Start All</button>
+            <button id="tvm-stop-all-channels" class="tvm-btn tvm-btn-secondary" style="flex: 1; min-width: 120px;">Stop All</button>
+            <button id="tvm-refresh-channels" class="tvm-btn tvm-btn-secondary" style="flex: 1; min-width: 120px;">Refresh</button>
+          </div>
+          
+          <!-- CSV Export Settings -->
+          <div style="padding-top: 16px; border-top: 1px solid #2e2e35;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <label style="color: #efeff1; font-size: 14px; font-weight: 500;">CSV Auto-Export</label>
+              <label class="tvm-toggle-switch">
+                <input type="checkbox" id="tvm-csv-export-enabled">
+                <span class="tvm-toggle-slider"></span>
+              </label>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <label style="color: #adadb8; font-size: 12px; min-width: 120px;">Interval (seconds):</label>
+              <input type="number" id="tvm-csv-interval" value="60" min="10" max="600" step="10"
+                style="flex: 1; padding: 6px 10px; background: #0e0e10; border: 1px solid #2e2e35; border-radius: 4px; color: #efeff1; font-size: 12px;">
+              <button id="tvm-save-csv-settings" class="tvm-btn tvm-btn-small" style="padding: 6px 12px;">Save</button>
+            </div>
+            <div style="margin-top: 8px;">
+              <button id="tvm-export-all-csv" class="tvm-btn tvm-btn-secondary" style="width: 100%; padding: 8px;">Export All Channels to CSV</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Toggle Button -->
+        <div style="text-align: center; margin-top: 12px;">
+          <button id="tvm-show-multi-channel" class="tvm-btn tvm-btn-small" style="font-size: 12px; color: #adadb8;">
+            Show Multi-Channel Settings
+          </button>
+        </div>
       </div>
     `;
   }

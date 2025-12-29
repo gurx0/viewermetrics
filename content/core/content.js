@@ -93,8 +93,10 @@ class TwitchViewerMetrics {
         }
 
 
-        // Setup event listener
+        // Setup event listeners
         this.setupStartTrackingButton();
+        this.setupMultiChannelUI();
+        this.loadChannelsList();
       }
     } catch (error) {
       this.errorHandler.handle(error, 'TVM Inject Simple UI');
@@ -106,6 +108,399 @@ class TwitchViewerMetrics {
     if (startBtn) {
       startBtn.addEventListener('click', () => this.handleStartTracking());
     }
+  }
+
+  setupMultiChannelUI() {
+    // Toggle show/hide
+    const showBtn = document.getElementById('tvm-show-multi-channel');
+    const hideBtn = document.getElementById('tvm-toggle-multi-channel');
+    const section = document.getElementById('tvm-multi-channel-section');
+    
+    if (showBtn && hideBtn && section) {
+      showBtn.addEventListener('click', () => {
+        section.style.display = 'block';
+        showBtn.style.display = 'none';
+      });
+      
+      hideBtn.addEventListener('click', () => {
+        section.style.display = 'none';
+        showBtn.style.display = 'block';
+      });
+    }
+
+    // Add channel
+    const addBtn = document.getElementById('tvm-add-channel-btn');
+    const addInput = document.getElementById('tvm-add-channel-input');
+    if (addBtn && addInput) {
+      addBtn.addEventListener('click', () => this.handleAddChannel());
+      addInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') this.handleAddChannel();
+      });
+    }
+
+    // Start all channels
+    const startAllBtn = document.getElementById('tvm-start-all-channels');
+    if (startAllBtn) {
+      startAllBtn.addEventListener('click', () => this.handleStartAllChannels());
+    }
+
+    // Stop all channels
+    const stopAllBtn = document.getElementById('tvm-stop-all-channels');
+    if (stopAllBtn) {
+      stopAllBtn.addEventListener('click', () => this.handleStopAllChannels());
+    }
+
+    // Refresh channels list
+    const refreshBtn = document.getElementById('tvm-refresh-channels');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', () => this.loadChannelsList());
+    }
+
+    // CSV export toggle
+    const csvToggle = document.getElementById('tvm-csv-export-enabled');
+    if (csvToggle) {
+      csvToggle.addEventListener('change', () => this.handleCSVToggle());
+      this.loadCSVSettings();
+    }
+
+    // Save CSV settings
+    const saveCSVBtn = document.getElementById('tvm-save-csv-settings');
+    if (saveCSVBtn) {
+      saveCSVBtn.addEventListener('click', () => this.handleSaveCSVSettings());
+    }
+
+    // Export all CSV
+    const exportAllBtn = document.getElementById('tvm-export-all-csv');
+    if (exportAllBtn) {
+      exportAllBtn.addEventListener('click', () => this.handleExportAllCSV());
+    }
+  }
+
+  async handleAddChannel() {
+    const input = document.getElementById('tvm-add-channel-input');
+    if (!input) return;
+
+    const channelName = input.value.trim().toLowerCase();
+    if (!channelName) {
+      alert('Please enter a channel name');
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'ADD_MULTI_CHANNEL',
+        channelName: channelName,
+        config: {
+          refreshInterval: 30000,
+          requestInterval: 5000,
+          timeoutDuration: 300000
+        }
+      });
+
+      if (response.success) {
+        input.value = '';
+        this.loadChannelsList();
+        this.showMessage(`Channel ${channelName} added successfully`, 'success');
+      } else {
+        this.showMessage(`Failed to add channel: ${response.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error adding channel:', error);
+      this.showMessage('Error adding channel. Check console for details.', 'error');
+    }
+  }
+
+  async handleStartAllChannels() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'START_ALL_CHANNELS'
+      });
+
+      if (response.success) {
+        this.loadChannelsList();
+        this.showMessage('All channels started', 'success');
+      } else {
+        this.showMessage('Failed to start channels', 'error');
+      }
+    } catch (error) {
+      console.error('Error starting channels:', error);
+      this.showMessage('Error starting channels', 'error');
+    }
+  }
+
+  async handleStopAllChannels() {
+    if (!confirm('Stop tracking for all channels?')) return;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'STOP_ALL_CHANNELS'
+      });
+
+      if (response.success) {
+        this.loadChannelsList();
+        this.showMessage('All channels stopped', 'success');
+      } else {
+        this.showMessage('Failed to stop channels', 'error');
+      }
+    } catch (error) {
+      console.error('Error stopping channels:', error);
+      this.showMessage('Error stopping channels', 'error');
+    }
+  }
+
+  async loadChannelsList() {
+    const listContainer = document.getElementById('tvm-channels-list');
+    if (!listContainer) return;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_MULTI_CHANNEL_STATUS'
+      });
+
+      if (response.success && response.status) {
+        const channels = response.status;
+        
+        if (channels.length === 0) {
+          listContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #adadb8; font-size: 14px;">No channels added yet</div>';
+          return;
+        }
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        
+        for (const channel of channels) {
+          const statusIcon = channel.isTracking ? '🟢' : '⚪';
+          const statusText = channel.isTracking ? (channel.isPaused ? 'Paused' : 'Tracking') : 'Stopped';
+          const viewerCount = channel.totalViewers || 0;
+          const authCount = channel.authenticatedCount || 0;
+
+          html += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: #0e0e10; border-radius: 4px; border: 1px solid #2e2e35;">
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <span style="font-size: 12px;">${statusIcon}</span>
+                  <strong style="color: #efeff1; font-size: 14px;">${channel.channelName}</strong>
+                  <span style="color: #adadb8; font-size: 12px;">${statusText}</span>
+                </div>
+                <div style="color: #adadb8; font-size: 11px;">
+                  Viewers: ${viewerCount} | Auth: ${authCount}
+                </div>
+              </div>
+              <div style="display: flex; gap: 4px;">
+                <button class="tvm-channel-toggle" data-channel="${channel.channelName}" data-enabled="${channel.enabled}" 
+                  style="padding: 4px 8px; font-size: 11px; background: ${channel.enabled ? '#9147ff' : '#2e2e35'}; color: #efeff1; border: none; border-radius: 4px; cursor: pointer;">
+                  ${channel.enabled ? 'Disable' : 'Enable'}
+                </button>
+                <button class="tvm-channel-remove" data-channel="${channel.channelName}"
+                  style="padding: 4px 8px; font-size: 11px; background: #e91916; color: #efeff1; border: none; border-radius: 4px; cursor: pointer;">
+                  Remove
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        html += '</div>';
+        listContainer.innerHTML = html;
+
+        // Setup event listeners for channel actions
+        listContainer.querySelectorAll('.tvm-channel-toggle').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const channelName = e.target.dataset.channel;
+            const enabled = e.target.dataset.enabled === 'true';
+            this.handleToggleChannel(channelName, !enabled);
+          });
+        });
+
+        listContainer.querySelectorAll('.tvm-channel-remove').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const channelName = e.target.dataset.channel;
+            this.handleRemoveChannel(channelName);
+          });
+        });
+      } else {
+        listContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #adadb8; font-size: 14px;">Error loading channels</div>';
+      }
+    } catch (error) {
+      console.error('Error loading channels:', error);
+      listContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #e91916; font-size: 14px;">Error loading channels</div>';
+    }
+  }
+
+  async handleToggleChannel(channelName, enabled) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'SET_CHANNEL_ENABLED',
+        channelName: channelName,
+        enabled: enabled
+      });
+
+      if (response.success) {
+        this.loadChannelsList();
+        this.showMessage(`Channel ${channelName} ${enabled ? 'enabled' : 'disabled'}`, 'success');
+      } else {
+        this.showMessage(`Failed to toggle channel: ${response.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling channel:', error);
+      this.showMessage('Error toggling channel', 'error');
+    }
+  }
+
+  async handleRemoveChannel(channelName) {
+    if (!confirm(`Remove channel ${channelName} from tracking list?`)) return;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'REMOVE_MULTI_CHANNEL',
+        channelName: channelName
+      });
+
+      if (response.success) {
+        this.loadChannelsList();
+        this.showMessage(`Channel ${channelName} removed`, 'success');
+      } else {
+        this.showMessage(`Failed to remove channel: ${response.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error removing channel:', error);
+      this.showMessage('Error removing channel', 'error');
+    }
+  }
+
+  async loadCSVSettings() {
+    try {
+      // Try to get current CSV settings (we'll need to add this to background)
+      // For now, just set default
+      const csvToggle = document.getElementById('tvm-csv-export-enabled');
+      if (csvToggle) {
+        csvToggle.checked = false; // Default to disabled
+      }
+    } catch (error) {
+      console.error('Error loading CSV settings:', error);
+    }
+  }
+
+  async handleCSVToggle() {
+    const csvToggle = document.getElementById('tvm-csv-export-enabled');
+    if (!csvToggle) return;
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: csvToggle.checked ? 'ENABLE_CSV_EXPORT' : 'DISABLE_CSV_EXPORT',
+        config: csvToggle.checked ? {
+          writeIntervalMs: parseInt(document.getElementById('tvm-csv-interval')?.value || '60') * 1000
+        } : {}
+      });
+
+      if (response.success) {
+        this.showMessage(`CSV export ${csvToggle.checked ? 'enabled' : 'disabled'}`, 'success');
+      } else {
+        csvToggle.checked = !csvToggle.checked; // Revert on error
+        this.showMessage('Failed to toggle CSV export', 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling CSV:', error);
+      csvToggle.checked = !csvToggle.checked;
+      this.showMessage('Error toggling CSV export', 'error');
+    }
+  }
+
+  async handleSaveCSVSettings() {
+    const intervalInput = document.getElementById('tvm-csv-interval');
+    const csvToggle = document.getElementById('tvm-csv-export-enabled');
+    
+    if (!intervalInput || !csvToggle) return;
+
+    const interval = parseInt(intervalInput.value) * 1000; // Convert to milliseconds
+    
+    if (interval < 10000 || interval > 600000) {
+      alert('Interval must be between 10 and 600 seconds');
+      return;
+    }
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'UPDATE_CSV_CONFIG',
+        config: {
+          writeIntervalMs: interval,
+          enabled: csvToggle.checked
+        }
+      });
+
+      if (response.success) {
+        this.showMessage('CSV settings saved', 'success');
+      } else {
+        this.showMessage('Failed to save CSV settings', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving CSV settings:', error);
+      this.showMessage('Error saving CSV settings', 'error');
+    }
+  }
+
+  async handleExportAllCSV() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_MULTI_CHANNELS'
+      });
+
+      if (response.success && response.channels) {
+        const channels = response.channels.filter(c => c.isTracking);
+        
+        if (channels.length === 0) {
+          alert('No active channels to export');
+          return;
+        }
+
+        this.showMessage(`Exporting ${channels.length} channels...`, 'info');
+
+        for (const channel of channels) {
+          try {
+            await chrome.runtime.sendMessage({
+              type: 'EXPORT_CHANNEL_TO_CSV',
+              channelName: channel.channelName
+            });
+          } catch (error) {
+            console.error(`Error exporting ${channel.channelName}:`, error);
+          }
+        }
+
+        this.showMessage(`Exported ${channels.length} channels to CSV`, 'success');
+      }
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      this.showMessage('Error exporting CSV', 'error');
+    }
+  }
+
+  showMessage(message, type = 'info') {
+    // Simple message display (can be improved with better UI)
+    const colors = {
+      success: '#00d9ff',
+      error: '#e91916',
+      info: '#9147ff'
+    };
+
+    const msgDiv = document.createElement('div');
+    msgDiv.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background: #18181b;
+      border: 1px solid ${colors[type] || colors.info};
+      border-radius: 4px;
+      color: ${colors[type] || colors.info};
+      font-size: 14px;
+      z-index: 10000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    `;
+    msgDiv.textContent = message;
+    document.body.appendChild(msgDiv);
+
+    setTimeout(() => {
+      msgDiv.remove();
+    }, 3000);
   }
 
   async handleStartTracking() {

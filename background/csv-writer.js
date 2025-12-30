@@ -11,10 +11,13 @@ export class CSVWriter {
   init(config = {}) {
     this.writeIntervalMs = config.writeIntervalMs || 60000;
     this.outputDirectory = config.outputDirectory || 'twitch_viewer_data';
-    this.enabled = config.enabled !== undefined ? config.enabled : true;
+    this.enabled = config.enabled !== undefined ? config.enabled : false; // Default to false
 
     if (this.enabled) {
       this.startPeriodicWrite();
+    } else {
+      // Make sure it's stopped if disabled
+      this.stopPeriodicWrite();
     }
   }
 
@@ -42,6 +45,11 @@ export class CSVWriter {
 
   // Write all active channels to CSV
   async writeAllChannelsToCSV(trackingSessions) {
+    // Check if CSV export is enabled
+    if (!this.enabled) {
+      return;
+    }
+
     if (!trackingSessions || trackingSessions.size === 0) {
       return;
     }
@@ -206,13 +214,29 @@ export class CSVWriter {
       this.outputDirectory = config.outputDirectory;
     }
     if (config.enabled !== undefined) {
+      const wasEnabled = this.enabled;
       this.enabled = config.enabled;
-      if (this.enabled) {
+      
+      if (this.enabled && !wasEnabled) {
+        // Was disabled, now enabled - start
         this.startPeriodicWrite();
-      } else {
+      } else if (!this.enabled && wasEnabled) {
+        // Was enabled, now disabled - stop
         this.stopPeriodicWrite();
+      } else if (this.enabled && wasEnabled && config.writeIntervalMs !== undefined) {
+        // Was enabled, still enabled, but interval changed - restart with new interval
+        this.startPeriodicWrite();
       }
     }
+  }
+
+  // Get current configuration
+  getConfig() {
+    return {
+      enabled: this.enabled,
+      writeIntervalMs: this.writeIntervalMs,
+      outputDirectory: this.outputDirectory
+    };
   }
 }
 

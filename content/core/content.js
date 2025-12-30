@@ -369,14 +369,31 @@ class TwitchViewerMetrics {
 
   async loadCSVSettings() {
     try {
-      // Try to get current CSV settings (we'll need to add this to background)
-      // For now, just set default
       const csvToggle = document.getElementById('tvm-csv-export-enabled');
-      if (csvToggle) {
-        csvToggle.checked = false; // Default to disabled
+      const intervalInput = document.getElementById('tvm-csv-interval');
+      
+      if (!csvToggle) return;
+
+      // Get current CSV settings from background
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_CSV_CONFIG'
+      });
+
+      if (response.success && response.config) {
+        csvToggle.checked = response.config.enabled || false;
+        if (intervalInput && response.config.writeIntervalMs) {
+          intervalInput.value = Math.round(response.config.writeIntervalMs / 1000);
+        }
+      } else {
+        // Default to disabled if can't get settings
+        csvToggle.checked = false;
       }
     } catch (error) {
       console.error('Error loading CSV settings:', error);
+      const csvToggle = document.getElementById('tvm-csv-export-enabled');
+      if (csvToggle) {
+        csvToggle.checked = false; // Default to disabled on error
+      }
     }
   }
 

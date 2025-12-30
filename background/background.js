@@ -243,6 +243,11 @@ class BackgroundService {
           sendResponse({ success: true });
           break;
 
+        case 'GET_CSV_CONFIG':
+          const csvConfig = this.csvWriter.getConfig();
+          sendResponse({ success: true, config: csvConfig });
+          break;
+
         case 'EXPORT_CHANNEL_TO_CSV':
           const exportResult = await this.exportChannelToCSV(message.channelName);
           sendResponse(exportResult);
